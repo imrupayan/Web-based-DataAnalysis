@@ -110,7 +110,6 @@ The dashboard will open automatically at `http://localhost:8501`.
 ```
 Web-based-DataAnalysis/
 ├── app.py               # Main application (Ollama-backed AI)
-├── final_project.py     # Alternate entry point
 ├── pyproject.toml       # Project metadata & dependencies
 ├── uv.lock              # Locked dependency versions
 ├── .python-version      # Python version pin
@@ -130,10 +129,13 @@ Web-based-DataAnalysis/
 
 ---
 
-## 👤 Author
+## 👥 Team Members & Contributions
 
-**Rupayan**
-GitHub: [@imrupayan](https://github.com/imrupayan)
+1. **Rupayan Ghosh**: Developed the core data analysis and preprocessing module of the dashboard, including file handling, missing data treatment, group-wise filtering, statistical summaries, column renaming, and AI-powered analysis integration using PandasAI and Ollama-based LLMs.
+2. **Tannistha Ghosh**: Developed the data visualization module using Plotly, implementing interactive charts such as bar charts, line charts, scatter plots, and pie charts. Also contributed to homepage design, dashboard styling, and undo functionality.
+3. **Mehul Ghosh**: Built the Sign in and Sign up page using HTML, CSS and JavaScript.
+4. **Farhan Gazi**: Implemented numeric range filtering, duplicate row removal, outlier detection, negative value detection, datatype viewing, and column search features.
+5. **Yashanshi Gautam**: Designed and prepared the project presentation (PPT) and assisted in documenting the project workflow and features.
 
 ---
 
