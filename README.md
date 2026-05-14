@@ -80,7 +80,7 @@ This reads `pyproject.toml` and installs all required packages into a local `.ve
 ### 3. Pull an Ollama Model
 
 ```bash
-ollama pull qwen3
+ollama run qwen3-coder:480b-cloud
 ```
 
 > You can use any Ollama-compatible model. Update the `model` parameter in `app.py` to match.
