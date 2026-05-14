@@ -6,7 +6,56 @@ import sqlite3
 from pandasai import Agent
 from pandasai.llm.local_llm import LocalLLM
 from pandasai.responses import ResponseParser
+import re
 
+# Page Configuration
+st.set_page_config(
+    layout="wide",
+    page_title="DataPulse | Analytics Dashboard",
+    page_icon="📊",
+)
+
+# ── Login Authentication (uses CSS from login.html) ──────────────────────────
+# if "logged_in" not in st.session_state:
+#     st.session_state.logged_in = False
+
+# if not st.session_state.logged_in:
+#     # Apply the gradient background from login.html without breaking Streamlit widgets
+#     st.markdown("""
+#     <style>
+#         .stApp {
+#             background: linear-gradient(135deg, #0f2027, #203a43, #2c5364) !important;
+#         }
+#         header[data-testid="stHeader"] { background: transparent !important; }
+#         [data-testid="stSidebar"] { display: none !important; }
+#         .login-title {
+#             text-align: center; color: #fff;
+#             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+#             margin-bottom: 1rem;
+#         }
+#     </style>
+#     """, unsafe_allow_html=True)
+
+#     st.markdown("<h2 class='login-title'>Welcome</h2>", unsafe_allow_html=True)
+
+#     col1, col2, col3 = st.columns([1.2, 1, 1.2])
+#     with col2:
+#         with st.form("login_form"):
+#             email = st.text_input("Email ID", placeholder="Enter your email")
+#             password = st.text_input("Password", type="password", placeholder="Enter your password")
+#             submitted = st.form_submit_button("Login", use_container_width=True)
+
+#         if submitted:
+#             if email == "admin@datapulse.com" and password == "admin123":
+#                 st.session_state.logged_in = True
+#                 st.rerun()
+#             else:
+#                 st.error("Invalid email or password")
+
+#         if st.button("Sign Up", use_container_width=True):
+#             st.info("Sign up is not available yet. Use demo credentials: admin@datapulse.com / admin123")
+
+#     st.stop()
 
 class PermissiveParser(ResponseParser):
     def parse(self, result):
@@ -14,14 +63,7 @@ class PermissiveParser(ResponseParser):
             return result.get("value", "Analysis complete.")
         return result
 
-# ── Page Configuration ────────────────────────────────────────────────────────
-st.set_page_config(
-    layout="wide",
-    page_title="DataPulse | Analytics Dashboard",
-    page_icon="📊",
-)
-
-# ── Dark Dashboard CSS ────────────────────────────────────────────────────────
+# Dark Dashboard CSS 
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
@@ -47,7 +89,7 @@ PLOTLY_TEMPLATE = dict(
     colorway=["#3b82f6","#06b6d4","#8b5cf6","#10b981","#f59e0b"],
 )
 
-# ── Sidebar: Navigation & File Upload ─────────────────────────────────────────
+#  Sidebar: Navigation & File Upload 
 with st.sidebar:
     st.markdown("---")
     st.markdown("### 📂 Data Sources")
@@ -86,7 +128,7 @@ if uploaded_file is not None:
         num_cols = df.select_dtypes(include=np.number).columns.tolist()
         cat_cols = df.select_dtypes(exclude=np.number).columns.tolist()
 
-        # ── PAGE: HOME ──────────────────────────────────────────────────────
+        # PAGE: HOME 
         with tab1:
             m1, m2, m3, m4 = st.columns(4)
             m1.metric("Total Rows", f"{len(df):,}")
@@ -145,7 +187,7 @@ if uploaded_file is not None:
 
 
 
-        # ── PAGE: REPORTS ─────────────────────────────────────────────────────
+        # PAGE: REPORTS 
         with tab2:
             st.markdown("### 📋 Data Analysis")
             st.markdown("<div class='dash-card'>", unsafe_allow_html=True)
@@ -234,18 +276,140 @@ if uploaded_file is not None:
                             st.success(f'Renamed "{col_to_rename}" → "{new_name}"')
                             st.rerun()
 
+                elif feature == "Remove Outlier":
+
+                    numeric_cols = temp_data.select_dtypes(include=np.number).columns
+
+                    if len(numeric_cols) > 0:
+
+                        select_col = st.selectbox(
+                            "Select Numeric Column",
+                            numeric_cols,
+                            key="outlier_col"
+                        )
+
+                        q1 = temp_data[select_col].quantile(0.25)
+                        q3 = temp_data[select_col].quantile(0.75)
+
+                        iqr = q3 - q1
+
+                        lower_limit = q1 - 1.5 * iqr
+                        upper_limit = q3 + 1.5 * iqr
+
+                        temp_data = temp_data[
+                            (temp_data[select_col] >= lower_limit) &
+                            (temp_data[select_col] <= upper_limit)
+                        ]
+                    else:
+                        st.warning("No numeric columns found.")
+
+                elif feature == "Remove Duplicate Rows":
+                    before_rows = temp_data.shape[0]
+
+                    temp_data.drop_duplicates(inplace=True)
+
+                    after_rows = temp_data.shape[0]
+
+                    st.success(
+                        f"{before_rows - after_rows} duplicate rows removed."
+                    )
+                elif feature == "Column Search":
+
+                    search_col = st.selectbox(
+                        "Select Column",
+                        temp_data.columns,
+                        key="search_col"
+                    )
+
+                    search_value = st.text_input(
+                        "Search Value",
+                        key="search_val"
+                    )
+
+                    if search_value:
+
+                        temp_data = temp_data[
+                            temp_data[search_col]
+                            .astype(str)
+                            .str.contains(search_value, case=False, na=False)
+                        ]
+
+                elif feature == "Negative Value Detection":
+
+                    numeric_cols = temp_data.select_dtypes(
+                        include=np.number
+                    ).columns
+
+                    if len(numeric_cols) > 0:
+
+                        negative_count = (
+                            temp_data[numeric_cols] < 0
+                        ).sum().sum()
+
+                        st.info(
+                            f"Total Negative Values Found : {negative_count}"
+                        )
+
+                    else:
+                        st.warning("No numeric columns found.")
+
+                elif feature == "Column Datatype Viewer":
+
+                    dtype_df = pd.DataFrame({
+                        "Column Name": temp_data.columns,
+                        "Datatype": temp_data.dtypes.astype(str)
+                    })
+
+                    st.dataframe(dtype_df)
+
+                elif feature == "Top Values Viewer":
+
+                    select_col = st.selectbox(
+                        "Select Column",
+                        temp_data.columns,
+                        key="top_val_col"
+                    )
+
+                    top_values = (
+                        temp_data[select_col]
+                        .value_counts()
+                        .head(10)
+                    )
+
+                    st.dataframe(top_values)
                 return temp_data
-
-
             col_left, col_right = st.columns([1, 5])
 
             with col_left:
+
                 features = st.selectbox(
                     "Let's do something",
-                    ["Handling Missing Data", "Groupwise Filter", "Use Range","Statistical Summary", "Rename Column"],
-                    key="feature_select",
+                    ["Handling Missing Data",
+                    "Remove Outlier",
+                    "Groupwise Filter",
+                    "Statistical Summary",
+                    "Rename Column",
+                    "Remove Duplicate Rows",
+                    "Column Search",
+                    "Negative Value Detection",
+                    "Column Datatype Viewer",
+                    "Top Values Viewer"],
+                    key="feature_select"
                 )
-                new_df = all_features(features, df)
+
+                new_df = df.copy()
+
+
+                new_df = all_features(features, new_df)
+            # col_left, col_right = st.columns([1, 5])
+
+            # with col_left:
+            #     features = st.selectbox(
+            #         "Let's do something",
+            #         ["Handling Missing Data", "Groupwise Filter", "Use Range","Statistical Summary", "Rename Column","Remove Outlier","Column Search","Negative Value Detection","Column Datatype Viewer","Top Values Viewer"],
+            #         key="feature_select",
+            #     )
+            #     new_df = all_features(features, df)
 
             with col_right:
                 st.dataframe(new_df, use_container_width=True)
@@ -254,7 +418,7 @@ if uploaded_file is not None:
             #csv = df.to_csv(index=False).encode('utf-8')
             #st.download_button("Download Full CSV", data=csv, file_name="report.csv", mime="text/csv")
             st.markdown("</div>", unsafe_allow_html=True)
-        # ── PAGE: ANALYTICS ───────────────────────────────────────────────────
+        # PAGE: ANALYTICS 
         with tab3:
             st.markdown("### 📈 Data Visulization")
             if len(all_cols) < 1:
@@ -325,7 +489,7 @@ if uploaded_file is not None:
 
             model = LocalLLM(
                 api_base="http://localhost:11434/v1",
-                model="qwen3-coder:480b-cloud"
+                model="glm-4.7:cloud"
             )
 
 
@@ -390,20 +554,16 @@ if uploaded_file is not None:
                         current_prompt = f"Dataset columns and types: [{dtype_info}]. " + PROMPTS[selected_task]
                         st.session_state.response = agent.chat(current_prompt)
                 
-                # FIX: Grab the text, but check if it contains actual characters
+
                 general_query = st.text_area("Ask your Query").strip()
                 
-                # FIX: Check if the string is not empty (evaluates to False if "")
                 if general_query: 
                     if st.button("Ask"):
                         with st.spinner("Generating response..."):
-                            # FIX: Added the missing action to execute the agent
                             st.session_state.response = agent.chat(general_query)
             
 
                 if st.session_state.response is not None:
-                    # Only re-display if it's a DataFrame or a short text result.
-                    # Skip if it's None-like or if PandasAI already rendered via st.* calls.
                     if isinstance(st.session_state.response, pd.DataFrame):
                         st.write("### AI Response")
                         st.dataframe(st.session_state.response)
